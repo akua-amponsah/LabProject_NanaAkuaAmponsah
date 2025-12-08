@@ -18,10 +18,10 @@ try {
         $stmt = $pdo->prepare("
             SELECT c.course_id, c.course_code, c.course_name, c.description,
                    CONCAT(u.first_name, ' ', u.last_name) as instructor_name
-            FROM course_enrollments ce
+            FROM enrollments ce
             JOIN courses c ON ce.course_id = c.course_id
             JOIN users u ON c.created_by = u.user_id
-            WHERE ce.student_id = ?
+            WHERE ce.student_id = ? AND ce.status = 'approved'
             ORDER BY c.course_name
         ");
         $stmt->execute([$userId]);
@@ -34,7 +34,7 @@ try {
             FROM courses c
             JOIN users u ON c.created_by = u.user_id
             WHERE c.course_id NOT IN (
-                SELECT course_id FROM course_enrollments WHERE student_id = ?
+                SELECT course_id FROM enrollments WHERE student_id = ?
             )
             AND c.course_id NOT IN (
                 SELECT course_id FROM enrollment_requests 

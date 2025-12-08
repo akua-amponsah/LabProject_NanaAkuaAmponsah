@@ -130,7 +130,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load enrollment requests
     function loadEnrollmentRequests() {
-        fetch('../actions/get-enrollment-requests.php')
+        fetch('../actions/get-enrollments-request.php')
         .then(response => response.json())
         .then(data => {
             const requestsList = document.getElementById('enrollmentRequestsList');

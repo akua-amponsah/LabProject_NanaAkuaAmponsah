@@ -50,11 +50,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("UPDATE enrollment_requests SET status = ? WHERE request_id = ?");
         $stmt->execute([$action, $requestId]);
         
-        // If approved, add to course_enrollments
+        // If approved, add to enrollments
         if ($action === 'approved') {
             $stmt = $pdo->prepare("
-                INSERT INTO course_enrollments (student_id, course_id) 
-                VALUES (?, ?)
+                INSERT INTO enrollments (student_id, course_id, status) 
+                VALUES (?, ?, 'approved')
             ");
             $stmt->execute([$request['student_id'], $request['course_id']]);
         }

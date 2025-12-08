@@ -1,7 +1,176 @@
 document.addEventListener('DOMContentLoaded', function() {
     
     const searchInput = document.getElementById('searchCourse');
+    const courseFilter = document.getElementById('courseFilter');
     let allAvailableCourses = [];
+    let enrolledCourses = [];
+    
+    // Handle attendance code submission
+    const attendanceCodeForm = document.getElementById('attendanceCodeForm');
+    attendanceCodeForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const code = formData.get('session_code');
+        
+        // Show loading state
+        const resultDiv = document.getElementById('attendanceResult');
+        resultDiv.innerHTML = `
+            <div style="padding: 15px; background: #e3f2fd; border: 1px solid #90caf9; border-radius: 4px; color: #1565c0;">
+                <strong>⏳ Submitting attendance...</strong>
+            </div>
+        `;
+        
+        fetch('../actions/submit-attendance-code.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Success message
+                resultDiv.innerHTML = `
+                    <div style="padding: 20px; background: #d4edda; border: 2px solid #28a745; border-radius: 6px; color: #155724;">
+                        <h3 style="margin: 0 0 10px 0; color: #28a745;">✓ ${data.message}</h3>
+                        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #c3e6cb;">
+                            <p style="margin: 5px 0;"><strong>Session:</strong> ${data.session_name}</p>
+                            <p style="margin: 5px 0;"><strong>Course:</strong> ${data.course_name}</p>
+                            <p style="margin: 5px 0;"><strong>Date:</strong> ${data.session_date}</p>
+                        </div>
+                    </div>
+                `;
+                
+                // Show SweetAlert
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Attendance Marked!',
+                    html: `
+                        <p><strong>Session:</strong> ${data.session_name}</p>
+                        <p><strong>Course:</strong> ${data.course_name}</p>
+                        <p><strong>Date:</strong> ${data.session_date}</p>
+                    `,
+                    confirmButtonColor: '#4caf50'
+                });
+                
+                // Clear form
+                attendanceCodeForm.reset();
+                
+                // Reload attendance records
+                loadAttendanceRecords();
+                
+                // Auto-hide success message after 10 seconds
+                setTimeout(() => {
+                    resultDiv.innerHTML = '';
+                }, 10000);
+                
+            } else {
+                // Error message
+                resultDiv.innerHTML = `
+                    <div style="padding: 15px; background: #f8d7da; border: 2px solid #f44336; border-radius: 6px; color: #721c24;">
+                        <strong>✗ ${data.message}</strong>
+                    </div>
+                `;
+                
+                // Show SweetAlert for error
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: data.message,
+                    confirmButtonColor: '#f44336'
+                });
+            }
+        })
+        .catch(error => {
+            resultDiv.innerHTML = `
+                <div style="padding: 15px; background: #f8d7da; border: 2px solid #f44336; border-radius: 6px; color: #721c24;">
+                    <strong>✗ Error submitting attendance. Please try again.</strong>
+                </div>
+            `;
+            console.error('Error:', error);
+        });
+    });
+    
+    // Load attendance records
+    function loadAttendanceRecords(courseId = '') {
+        const url = courseId ? `../actions/get-student-attendance.php?course_id=${courseId}` : '../actions/get-student-attendance.php';
+        
+        fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update statistics
+                document.getElementById('statAttended').textContent = data.statistics.attended;
+                document.getElementById('statMissed').textContent = data.statistics.missed;
+                document.getElementById('statLate').textContent = data.statistics.late;
+                document.getElementById('statRate').textContent = data.statistics.attendance_rate + '%';
+                
+                // Display attendance records
+                displayAttendanceRecords(data.sessions);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading attendance records:', error);
+            document.getElementById('attendanceRecordsList').innerHTML = '<p style="color: red;">Error loading attendance records.</p>';
+        });
+    }
+    
+    // Display attendance records
+    function displayAttendanceRecords(sessions) {
+        const recordsList = document.getElementById('attendanceRecordsList');
+        
+        if (sessions.length > 0) {
+            let html = '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; background: white;">';
+            html += `
+                <thead>
+                    <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+                        <th style="padding: 12px; text-align: left; font-weight: 600;">Date</th>
+                        <th style="padding: 12px; text-align: left; font-weight: 600;">Course</th>
+                        <th style="padding: 12px; text-align: left; font-weight: 600;">Session</th>
+                        <th style="padding: 12px; text-align: center; font-weight: 600;">Status</th>
+                        <th style="padding: 12px; text-align: center; font-weight: 600;">Marked At</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+            
+            sessions.forEach(session => {
+                let statusBadge = '';
+                if (session.has_attended == 1) {
+                    if (session.status === 'present') {
+                        statusBadge = '<span style="background: #4caf50; color: white; padding: 5px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600;">✓ Present</span>';
+                    } else if (session.status === 'late') {
+                        statusBadge = '<span style="background: #ff9800; color: white; padding: 5px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600;">⏰ Late</span>';
+                    } else if (session.status === 'absent') {
+                        statusBadge = '<span style="background: #f44336; color: white; padding: 5px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600;">✗ Absent</span>';
+                    }
+                } else {
+                    statusBadge = '<span style="background: #9e9e9e; color: white; padding: 5px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600;">— Not Marked</span>';
+                }
+                
+                const markedAt = session.marked_at ? new Date(session.marked_at).toLocaleString() : '—';
+                
+                html += `
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px;">${session.session_date}</td>
+                        <td style="padding: 12px;">${session.course_code}</td>
+                        <td style="padding: 12px;">${session.session_name}</td>
+                        <td style="padding: 12px; text-align: center;">${statusBadge}</td>
+                        <td style="padding: 12px; text-align: center; color: #666; font-size: 0.9rem;">${markedAt}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div>';
+            recordsList.innerHTML = html;
+        } else {
+            recordsList.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">No attendance records found.</p>';
+        }
+    }
+    
+    // Course filter change event
+    courseFilter.addEventListener('change', function() {
+        loadAttendanceRecords(this.value);
+    });
     
     // Load enrolled courses
     function loadEnrolledCourses() {
@@ -11,6 +180,16 @@ document.addEventListener('DOMContentLoaded', function() {
             const enrolledList = document.getElementById('enrolledCoursesList');
             
             if (data.success && data.enrolled.length > 0) {
+                enrolledCourses = data.enrolled;
+                
+                // Populate course filter dropdown
+                let filterOptions = '<option value="">All Courses</option>';
+                data.enrolled.forEach(course => {
+                    filterOptions += `<option value="${course.course_id}">${course.course_code} - ${course.course_name}</option>`;
+                });
+                courseFilter.innerHTML = filterOptions;
+                
+                // Display enrolled courses
                 let html = '<div style="display: grid; gap: 15px;">';
                 
                 data.enrolled.forEach(course => {
@@ -173,4 +352,5 @@ document.addEventListener('DOMContentLoaded', function() {
     loadEnrolledCourses();
     loadAvailableCourses();
     loadPendingRequests();
+    loadAttendanceRecords();
 });

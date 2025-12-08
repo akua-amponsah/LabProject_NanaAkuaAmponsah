@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     try {
         // Check if already enrolled
-        $stmt = $pdo->prepare("SELECT enrollment_id FROM course_enrollments WHERE student_id = ? AND course_id = ?");
+        $stmt = $pdo->prepare("SELECT enrollment_id FROM enrollments WHERE student_id = ? AND course_id = ?");
         $stmt->execute([$studentId, $courseId]);
         
         if ($stmt->fetch()) {
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$studentId, $courseId]);
         
         echo json_encode([
-            'success' => true, 
+            'success' => true,
             'message' => 'Enrollment request sent successfully! Waiting for faculty approval.'
         ]);
         
